@@ -1,5 +1,7 @@
 /*
  * ESP-32 based BLE Scanner
+ * Author: Tony.Jewell@Cregganna.Com
+ * 
  * Inspiration taken from: https://github.com/pvvx/ATC_MiThermometer.git
  */
 #include <Arduino.h>
