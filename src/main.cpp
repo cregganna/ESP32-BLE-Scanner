@@ -10,7 +10,25 @@
 #include <BLEScan.h>
 #include <BLEAdvertisedDevice.h>
 
-int scanTime = 30; // seconds
+#define SCAN_INTERVAL_MILLIS 625
+#define SCAN_WINDOW_MILLIS 625
+#define SCAN_DURATION_SECS 30
+#define SCAN_DELIVER_DUPLICATES true
+
+// Uncomment this and set your address if you want to limit to a single device
+// #define HW_FILTER BLEAddress("a4:c1:38:e1:ea:50")
+
+// Active vs Passive Scanning
+// ACTIVE: Using Active scanning causes the Scanner (us) to query the device and receive
+// responses - this can be used to determine more services on the device incl.
+// Device Name etc.
+// PASSIVE: Setting this to false will only receive unsolicited beacon broadcasts from the
+// devices - if your device periodically sends the data you want then this will be
+// the most power efficient method for the remote devices. ie they do not have to
+// receive requests, send responses and avoid device Tx collisions.
+// #define SCAN_ACTIVELY true /* Activeliy Scan devices for their services */
+#define SCAN_ACTIVELY false /* Passively scan - will only pick up unsolicited service broadcasts */
+
 BLEScan* pBLEScan;
 
 static char hex[] = "0123456789abcdef";
@@ -58,7 +76,13 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
   }
 
   void onResult(BLEAdvertisedDevice advertisedDevice) {
-    Serial.printf("[%s] ", advertisedDevice.getAddress().toString().c_str());
+    BLEAddress address = advertisedDevice.getAddress();
+#if defined (HW_FILTER)
+    if (address != HW_FILTER) { 
+      return;
+    }
+#endif
+    Serial.printf("[%s] ", address.toString().c_str());
     if (advertisedDevice.haveName()) {
       Serial.printf(" %10s", advertisedDevice.getName().c_str());
     }
@@ -102,20 +126,17 @@ class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
 
 void setup() {
   Serial.begin(PIO_MONITOR_SPEED);
-  Serial.println("Scanning...");
-  BLEDevice::init("");
+  Serial.printf("BLE %s Scanning...\n", SCAN_ACTIVELY? "Active": "Passive");
+  BLEDevice::init("ESP32-BLE-Scanner");
   pBLEScan = BLEDevice::getScan();
-  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), true);
-  pBLEScan->setInterval(625); // default 100
-  pBLEScan->setWindow(625);  // default 100, less or equal setInterval value
-  pBLEScan->setActiveScan(true);
+  pBLEScan->setAdvertisedDeviceCallbacks(new MyAdvertisedDeviceCallbacks(), SCAN_DELIVER_DUPLICATES);
+  pBLEScan->setInterval(SCAN_INTERVAL_MILLIS);
+  pBLEScan->setWindow(SCAN_WINDOW_MILLIS);
+  pBLEScan->setActiveScan(SCAN_ACTIVELY);
 }
 
 void loop() {
-  BLEScanResults foundDevices = pBLEScan->start(scanTime, false);
-  //Serial.print("Devices found: ");
-  //Serial.println(foundDevices.getCount());
-  //Serial.println("Scan done!");
+  BLEScanResults foundDevices = pBLEScan->start(SCAN_DURATION_SECS, false);
   pBLEScan->stop();
   pBLEScan->clearResults();
 }
